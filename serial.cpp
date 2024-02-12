@@ -56,7 +56,6 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         parts[i].ax = parts[i].ay = 0;
         for (int j = 0; j < num_parts; ++j) {
             apply_force(parts[i], parts[j]);
-            apply_force(parts[i], parts[j]);
         }
     }
 
