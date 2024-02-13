@@ -19,6 +19,7 @@ void apply_force(particle_t& particle, particle_t& neighbor) {
     double coef = (1 - cutoff / r) / r2 / mass;
     particle.ax += coef * dx;
     particle.ay += coef * dy;
+    // Updating the acceleration of the particles (x &y direction) based on the calculated force components (coeff)
 }
 
 // Integrate the ODE
