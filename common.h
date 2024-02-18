@@ -18,6 +18,8 @@ typedef struct particle_t {
     double vy; // Velocity Y
     double ax; // Acceleration X
     double ay; // Acceleration Y
+    int bin_x;
+    int bin_y;
 } particle_t;
 
 // Simulation routine
