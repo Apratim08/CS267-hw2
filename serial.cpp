@@ -61,10 +61,13 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     }
 
     // Clear forces and reassign particles to bins
+    double bin_size_x = size / num_bins_x;
+    double bin_size_y = size / num_bins_y;
+
     for (int i = 0; i < num_parts; ++i) {
         parts[i].ax = parts[i].ay = 0;
-        parts[i].bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
-        parts[i].bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
+        parts[i].bin_x = static_cast<int>(parts[i].x / bin_size_x);
+        parts[i].bin_y = static_cast<int>(parts[i].y / bin_size_y);
     }
 
     // Vector of vectors to store particles in each bin
@@ -86,18 +89,16 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
-                        if (dx != 0 || dy != 0) { // Skip the current bin
-                            int nbx = bx + dx;
-                            int nby = by + dy;
+                        int nbx = bx + dx;
+                        int nby = by + dy;
 
-                            // Check if the neighboring bin is valid
-                            if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
-                                int neighbor_bin_index = nbx + nby * num_bins_x;
+                        // Check if the neighboring bin is valid
+                        if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
+                            int neighbor_bin_index = nbx + nby * num_bins_x;
 
-                                // Iterate over particles in the neighboring bin
-                                for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                    apply_force(particle, neighbor);
-                                }
+                            // Iterate over particles in the neighboring bin
+                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
+                                apply_force(particle, neighbor);
                             }
                         }
                     }
