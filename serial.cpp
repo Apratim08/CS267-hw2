@@ -47,7 +47,7 @@ void move(particle_t& p, double size) {
 
 const int num_bins_x = 9;
 const int num_bins_y = 9;
-const int max_particles_per_bin = 10;
+const int max_particles_per_bin = 5;
 
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
