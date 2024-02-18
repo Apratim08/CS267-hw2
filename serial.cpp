@@ -47,6 +47,7 @@ void move(particle_t& p, double size) {
 
 const int num_bins_x = 9;
 const int num_bins_y = 9;
+const int max_particles_per_bin = 10;
 
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
@@ -55,28 +56,39 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
+    const double inv_bin_size_x = num_bins_x / size;
+    const double inv_bin_size_y = num_bins_y / size;
+
     // Move particles
     for (int i = 0; i < num_parts; ++i) {
         move(parts[i], size);
     }
 
     // Clear forces and reassign particles to bins
-    double bin_size_x = size / num_bins_x;
-    double bin_size_y = size / num_bins_y;
-
     for (int i = 0; i < num_parts; ++i) {
         parts[i].ax = parts[i].ay = 0;
-        parts[i].bin_x = static_cast<int>(parts[i].x / bin_size_x);
-        parts[i].bin_y = static_cast<int>(parts[i].y / bin_size_y);
+        parts[i].bin_x = static_cast<int>(parts[i].x * inv_bin_size_x);
+        parts[i].bin_y = static_cast<int>(parts[i].y * inv_bin_size_y);
     }
 
-    // Vector of vectors to store particles in each bin
-    std::vector<std::vector<particle_t>> bins(num_bins_x * num_bins_y);
+    // Linear vector to store particles in each bin
+    std::vector<particle_t> bins(num_bins_x * num_bins_y * max_particles_per_bin);
 
     // Populate bins
     for (int i = 0; i < num_parts; ++i) {
         int bin_index = parts[i].bin_x + parts[i].bin_y * num_bins_x;
-        bins[bin_index].push_back(parts[i]);
+
+        // Find an empty slot in the bin to store the particle
+        int slot_index = 0;
+        while (slot_index < max_particles_per_bin && bins[bin_index * max_particles_per_bin + slot_index].x != -1.0) {
+            ++slot_index;
+        }
+
+        // Check if there's room for the particle in the bin
+        if (slot_index < max_particles_per_bin) {
+            bins[bin_index * max_particles_per_bin + slot_index] = parts[i];
+        }
+        // Optionally handle the case where the bin is full
     }
 
     // Compute forces within each bin and neighboring bins
@@ -85,20 +97,25 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
             int bin_index = bx + by * num_bins_x;
 
             // Iterate over particles in the current bin
-            for (particle_t& particle : bins[bin_index]) {
+            for (int i = 0; i < max_particles_per_bin && bins[bin_index * max_particles_per_bin + i].x != -1.0; ++i) {
+                particle_t& particle = bins[bin_index * max_particles_per_bin + i];
+
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
-                        int nbx = bx + dx;
-                        int nby = by + dy;
+                        if (dx != 0 || dy != 0) { // Skip the current bin
+                            int nbx = bx + dx;
+                            int nby = by + dy;
 
-                        // Check if the neighboring bin is valid
-                        if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
-                            int neighbor_bin_index = nbx + nby * num_bins_x;
+                            // Check if the neighboring bin is valid
+                            if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
+                                int neighbor_bin_index = nbx + nby * num_bins_x;
 
-                            // Iterate over particles in the neighboring bin
-                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                apply_force(particle, neighbor);
+                                // Iterate over particles in the neighboring bin
+                                for (int j = 0; j < max_particles_per_bin && bins[neighbor_bin_index * max_particles_per_bin + j].x != -1.0; ++j) {
+                                    particle_t& neighbor = bins[neighbor_bin_index * max_particles_per_bin + j];
+                                    apply_force(particle, neighbor);
+                                }
                             }
                         }
                     }
@@ -107,3 +124,4 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         }
     }
 }
+
