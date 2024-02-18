@@ -73,7 +73,7 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     // Populate bins
     for (int i = 0; i < num_parts; ++i) {
         int bin_index = parts[i].bin_x + parts[i].bin_y * num_bins_x;
-        bins[bin_index].push_back(parts[i]);
+         bins[bin_index].emplace_back(parts[i]);
     }
 
     // Compute forces within each bin and neighboring bins
