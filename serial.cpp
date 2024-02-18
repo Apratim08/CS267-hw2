@@ -86,18 +86,18 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
-                        if (dx != 0 || dy != 0) { // Skip the current bin - improved the time by several seconds
-                            int nbx = bx + dx;
-                            int nby = by + dy;
+                        // if (dx != 0 || dy != 0) { // Skip the current bin - improved the time by
+                        // several seconds
+                        int nbx = bx + dx;
+                        int nby = by + dy;
 
-                            // Check if the neighboring bin is valid
-                            if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
-                                int neighbor_bin_index = nbx + nby * num_bins_x;
+                        // Check if the neighboring bin is valid
+                        if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
+                            int neighbor_bin_index = nbx + nby * num_bins_x;
 
-                                // Iterate over particles in the neighboring bin
-                                for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                    apply_force(particle, neighbor);
-                                }
+                            // Iterate over particles in the neighboring bin
+                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
+                                apply_force(particle, neighbor);
                             }
                         }
                     }
