@@ -55,54 +55,56 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
-    // Move particles
-    for (int i = 0; i < num_parts; ++i) {
-        move(parts[i], size);
-    }
-
-    // Clear forces and reassign particles to bins
-    for (int i = 0; i < num_parts; ++i) {
-        parts[i].ax = parts[i].ay = 0;
-        parts[i].bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
-        parts[i].bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
-    }
 
     // Vector of vectors to store particles in each bin
     std::vector<std::vector<particle_t>> bins(num_bins_x * num_bins_y);
 
-    // Populate bins
+    // Clear forces and reassign particles to bins
     for (int i = 0; i < num_parts; ++i) {
-        int bin_index = parts[i].bin_x + parts[i].bin_y * num_bins_x;
+        parts[i].ax = parts[i].ay = 0;
+        int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
+        int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
+        int bin_index = bin_x + bin_y * num_bins_x;
         bins[bin_index].push_back(parts[i]);
     }
+    std::cout << "Length of the vector: " << bins[0].size() << std::endl;
 
     // Compute forces within each bin and neighboring bins
     for (int bx = 0; bx < num_bins_x; ++bx) {
         for (int by = 0; by < num_bins_y; ++by) {
             int bin_index = bx + by * num_bins_x;
+            std::cout << "pos: " << bin_index << std::endl;
 
             // Iterate over particles in the current bin
             for (particle_t& particle : bins[bin_index]) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
-                        if (dx != 0 || dy != 0) { // Skip the current bin - improved the time by several seconds
-                            int nbx = bx + dx;
-                            int nby = by + dy;
+                        int nbx = bx + dx;
+                        int nby = by + dy;
 
-                            // Check if the neighboring bin is valid
-                            if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
-                                int neighbor_bin_index = nbx + nby * num_bins_x;
+                        // Check if the neighboring bin is valid
+                        if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
+                            int neighbor_bin_index = nbx + nby * num_bins_x;
 
-                                // Iterate over particles in the neighboring bin
-                                for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                    apply_force(particle, neighbor);
-                                }
+                            // Iterate over particles in the neighboring bin
+                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
+                                apply_force(particle, neighbor);
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Move particles
+    for (int i = 0; i < num_parts; ++i) {
+        move(parts[i], size);
+    }
+
+    // empty bins
+    for (int i = 0; i < num_bins_x * num_bins_y; ++i) {
+        bins[i].clear();
     }
 }
