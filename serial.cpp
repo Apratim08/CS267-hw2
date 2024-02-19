@@ -61,16 +61,11 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
     // Clear forces and reassign particles to bins
     for (int i = 0; i < num_parts; ++i) {
-<<<<<<< HEAD
-        int bin_index = parts[i].bin_x + parts[i].bin_y * num_bins_x;
-         bins[bin_index].emplace_back(parts[i]);
-=======
         parts[i].ax = parts[i].ay = 0;
         int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
         int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
         int bin_index = bin_x + bin_y * num_bins_x;
         bins[bin_index].push_back(parts[i]);
->>>>>>> 37176d559af76356301191f09798288dec4f8bc0
     }
     std::cout << "Length of the vector: " << bins[0].size() << std::endl;
 
@@ -85,11 +80,6 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
-<<<<<<< HEAD
-                        // if (dx != 0 || dy != 0) { // Skip the current bin - improved the time by
-                        // several seconds
-=======
->>>>>>> 37176d559af76356301191f09798288dec4f8bc0
                         int nbx = bx + dx;
                         int nby = by + dy;
 
