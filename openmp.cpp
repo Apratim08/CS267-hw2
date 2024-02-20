@@ -1,6 +1,7 @@
 #include "common.h"
 #include <cmath>
 #include <vector>
+#include <omp.h>
 
 // Apply the force from neighbor to particle
 void apply_force(particle_t& particle, particle_t& neighbor) {
@@ -57,6 +58,7 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
     // Vector of vectors to store particles in each bin
+    #pragma omp master
     std::vector<std::vector<int>> bins(num_bins_x * num_bins_y);
 
     #pragma omp for
