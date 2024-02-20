@@ -2,6 +2,9 @@
 #include <cmath>
 #include <vector>
 
+int num_bins_x;
+int num_bins_y;
+
 // Apply the force from neighbor to particle
 void apply_force(particle_t& particle, particle_t& neighbor) {
     // Calculate Distance
@@ -43,18 +46,16 @@ void move(particle_t& p, double size) {
     }
 }
 
-const int num_bins_x = 9;
-const int num_bins_y = 9;
-
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
     // that you may need. This function will be called once before the
     // algorithm begins. Do not do any particle simulation here
+    num_bins_x = static_cast<int>(size / cutoff) - 1;
+    num_bins_y = static_cast<int>(size / cutoff) - 1;
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
-    // Vector of vectors to store particles in each bin
     std::vector<std::vector<int>> bins(num_bins_x * num_bins_y);
 
     // Clear forces and reassign particles to bins
@@ -74,8 +75,8 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
             // Iterate over particles in the current bin
             for (int particle : bins[bin_index]) {
                 // Iterate over neighboring bins
-                for (int dx = -1; dx <= 1; ++dx) {
-                    for (int dy = -1; dy <= 1; ++dy) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
                         int nbx = bx + dx;
                         int nby = by + dy;
 
@@ -97,10 +98,5 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     // Move particles
     for (int i = 0; i < num_parts; ++i) {
         move(parts[i], size);
-    }
-
-    // empty bins
-    for (int i = 0; i < num_bins_x * num_bins_y; ++i) {
-        bins[i].clear();
     }
 }
