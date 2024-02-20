@@ -1,9 +1,6 @@
 #include "common.h"
 #include <cmath>
 #include <vector>
-#include <omp.h>
-#include <iostream>
-#include <cstdlib>
 
 // Apply the force from neighbor to particle
 void apply_force(particle_t& particle, particle_t& neighbor) {
@@ -24,6 +21,7 @@ void apply_force(particle_t& particle, particle_t& neighbor) {
     particle.ax += coef * dx;
     particle.ay += coef * dy;
 }
+
 // Integrate the ODE
 void move(particle_t& p, double size) {
     // Slightly simplified Velocity Verlet integration
@@ -45,39 +43,41 @@ void move(particle_t& p, double size) {
     }
 }
 
-const int num_bins_x = 9;
-const int num_bins_y = 9;
+int num_bins_x;
+int num_bins_y;
+
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
     // that you may need. This function will be called once before the
     // algorithm begins. Do not do any particle simulation here
+    num_bins_x = static_cast<int>(size / cutoff) - 1;
+    num_bins_y = static_cast<int>(size / cutoff) - 1;
 }
-
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
     // Vector of vectors to store particles in each bin
-    std::vector<std::vector<particle_t>> bins(num_bins_x * num_bins_y);
+    std::vector<std::vector<int>> bins(num_bins_x * num_bins_y);
 
+    #pragma omp for
     // Clear forces and reassign particles to bins
-    #pragma omp parallel shared(bins)
-    #pragma omp for 
     for (int i = 0; i < num_parts; ++i) {
         parts[i].ax = parts[i].ay = 0;
         int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
         int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
         int bin_index = bin_x + bin_y * num_bins_x;
-        #pragma omp critical
-        bins[bin_index].push_back(parts[i]);
+        // #pragma omp critical
+        bins[bin_index].push_back(i);
     }
-    // Compute forces within each bin and neighboring bins
-    #pragma omp parallel
+
     #pragma omp for
+    // Compute forces within each bin and neighboring bins
     for (int bx = 0; bx < num_bins_x; ++bx) {
         for (int by = 0; by < num_bins_y; ++by) {
             int bin_index = bx + by * num_bins_x;
+
             // Iterate over particles in the current bin
-            for (particle_t& particle : bins[bin_index]) {
+            for (int particle : bins[bin_index]) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
@@ -89,8 +89,8 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
                             int neighbor_bin_index = nbx + nby * num_bins_x;
 
                             // Iterate over particles in the neighboring bin
-                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                apply_force(particle, neighbor);
+                            for (int neighbor : bins[neighbor_bin_index]) {
+                                apply_force(parts[particle], parts[neighbor]);
                             }
                         }
                     }
@@ -99,17 +99,9 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         }
     }
 
-    // Move particles
-    #pragma omp parallel
     #pragma omp for
+    // Move particles
     for (int i = 0; i < num_parts; ++i) {
         move(parts[i], size);
-    }
-
-    // empty bins
-    #pragma omp parallel
-    #pragma omp for
-    for (int i = 0; i < num_bins_x * num_bins_y; ++i) {
-        bins[i].clear();
     }
 }
