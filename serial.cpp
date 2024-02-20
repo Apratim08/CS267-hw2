@@ -20,8 +20,6 @@ void apply_force(particle_t& particle, particle_t& neighbor) {
     double coef = (1 - cutoff / r) / r2 / mass;
     particle.ax += coef * dx;
     particle.ay += coef * dy;
-    // Updating the acceleration of the particles (x &y direction) based on the calculated force
-    // components (coeff)
 }
 
 // Integrate the ODE
@@ -57,7 +55,7 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
     // Vector of vectors to store particles in each bin
-    std::vector<std::vector<particle_t>> bins(num_bins_x * num_bins_y);
+    std::vector<std::vector<int>> bins(num_bins_x * num_bins_y);
 
     // Clear forces and reassign particles to bins
     for (int i = 0; i < num_parts; ++i) {
@@ -65,18 +63,16 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
         int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
         int bin_index = bin_x + bin_y * num_bins_x;
-        bins[bin_index].push_back(parts[i]);
+        bins[bin_index].push_back(i);
     }
-    std::cout << "Length of the vector: " << bins[0].size() << std::endl;
 
     // Compute forces within each bin and neighboring bins
     for (int bx = 0; bx < num_bins_x; ++bx) {
         for (int by = 0; by < num_bins_y; ++by) {
             int bin_index = bx + by * num_bins_x;
-            std::cout << "pos: " << bin_index << std::endl;
 
             // Iterate over particles in the current bin
-            for (particle_t& particle : bins[bin_index]) {
+            for (int particle : bins[bin_index]) {
                 // Iterate over neighboring bins
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
@@ -88,8 +84,8 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
                             int neighbor_bin_index = nbx + nby * num_bins_x;
 
                             // Iterate over particles in the neighboring bin
-                            for (particle_t& neighbor : bins[neighbor_bin_index]) {
-                                apply_force(particle, neighbor);
+                            for (int neighbor : bins[neighbor_bin_index]) {
+                                apply_force(parts[particle], parts[neighbor]);
                             }
                         }
                     }
