@@ -1,6 +1,7 @@
 #include "common.h"
 #include <cmath>
 #include <vector>
+#include <iostream>
 
 int num_bins_x;
 int num_bins_y;
