@@ -1,6 +1,8 @@
 #include "common.h"
 #include <cmath>
 #include <vector>
+#include <omp.h>
+#include <list>
 
 // Apply the force from neighbor to particle
 void apply_force(particle_t& particle, particle_t& neighbor) {
@@ -45,6 +47,9 @@ void move(particle_t& p, double size) {
 
 int num_bins_x;
 int num_bins_y;
+std::vector<std::list<int>> bins;
+std::vector<std::list<int>> moveout;
+std::vector<std::list<int>> movein;
 
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
@@ -52,46 +57,48 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
     // algorithm begins. Do not do any particle simulation here
     num_bins_x = static_cast<int>(size / cutoff) - 1;
     num_bins_y = static_cast<int>(size / cutoff) - 1;
-}
-
-void simulate_one_step(particle_t* parts, int num_parts, double size) {
-
-    // Vector of vectors to store particles in each bin
-    std::vector<std::vector<int>> bins(num_bins_x * num_bins_y);
-
-    #pragma omp for
-    // Clear forces and reassign particles to bins
+    bins.resize(num_bins_x*num_bins_y);
+    moveout.resize(num_bins_x*num_bins_y);
+    movein.resize(num_bins_x*num_bins_y);
     for (int i = 0; i < num_parts; ++i) {
         parts[i].ax = parts[i].ay = 0;
         int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
         int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
         int bin_index = bin_x + bin_y * num_bins_x;
-        // #pragma omp critical
         bins[bin_index].push_back(i);
     }
+}
 
-    #pragma omp for
+
+void simulate_one_step(particle_t* parts, int num_parts, double size) {
+    // Define locks for protecting movein and bins
+    omp_lock_t* movein_locks = new omp_lock_t[num_bins_x * num_bins_y];
+    omp_lock_t* bins_locks = new omp_lock_t[num_bins_x * num_bins_y];
+
+    // Initialize locks
+    for (int i = 0; i < num_bins_x * num_bins_y; ++i) {
+        omp_init_lock(&movein_locks[i]);
+        omp_init_lock(&bins_locks[i]);
+    }
+
     // Compute forces within each bin and neighboring bins
-    for (int bx = 0; bx < num_bins_x; ++bx) {
-        for (int by = 0; by < num_bins_y; ++by) {
-            int bin_index = bx + by * num_bins_x;
+    #pragma omp for
+    for (int bin_index = 0; bin_index < num_bins_x * num_bins_y; ++bin_index) {
+        int bx = bin_index % num_bins_x;
+        int by = bin_index / num_bins_x;
 
-            // Iterate over particles in the current bin
-            for (int particle : bins[bin_index]) {
-                // Iterate over neighboring bins
-                for (int dx = -1; dx <= 1; ++dx) {
-                    for (int dy = -1; dy <= 1; ++dy) {
-                        int nbx = bx + dx;
-                        int nby = by + dy;
-
-                        // Check if the neighboring bin is valid
-                        if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
-                            int neighbor_bin_index = nbx + nby * num_bins_x;
-
-                            // Iterate over particles in the neighboring bin
-                            for (int neighbor : bins[neighbor_bin_index]) {
-                                apply_force(parts[particle], parts[neighbor]);
-                            }
+        for (int particle : bins[bin_index]) {
+            // Iterate over neighboring bins
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    int nbx = bx + dx;
+                    int nby = by + dy;
+                    // Check if the neighboring bin is valid
+                    if (nbx >= 0 && nbx < num_bins_x && nby >= 0 && nby < num_bins_y) {
+                        int neighbor_bin_index = nbx + nby * num_bins_x;
+                        // Iterate over particles in the neighboring bin
+                        for (int neighbor : bins[neighbor_bin_index]) {
+                            apply_force(parts[particle], parts[neighbor]);
                         }
                     }
                 }
@@ -99,9 +106,53 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         }
     }
 
+    // Move particles and update bin assignments
     #pragma omp for
-    // Move particles
-    for (int i = 0; i < num_parts; ++i) {
-        move(parts[i], size);
+    for (int bin_index = 0; bin_index < num_bins_x * num_bins_y; ++bin_index) {
+        int bx = bin_index % num_bins_x;
+        int by = bin_index / num_bins_x;
+
+        for (int particle : bins[bin_index]) {
+            move(parts[particle], size);
+            int nbin_x = static_cast<int>(parts[particle].x / (size / num_bins_x));
+            int nbin_y = static_cast<int>(parts[particle].y / (size / num_bins_y));
+            int new_bin_index = nbin_x + nbin_y * num_bins_x;
+            if (nbin_x != bx || nbin_y != by) {
+                moveout[bin_index].push_back(particle);
+                // Acquire lock for movein[new_bin_index]
+                omp_set_lock(&movein_locks[new_bin_index]);
+                movein[new_bin_index].push_back(particle);
+                omp_unset_lock(&movein_locks[new_bin_index]);
+            }
+            parts[particle].ax = parts[particle].ay = 0;
+        }
     }
+
+    // Update bin assignments
+    #pragma omp for
+    for (int bin_index = 0; bin_index < num_bins_x * num_bins_y; ++bin_index) {
+        // Acquire lock for bins[bin_index]
+        omp_set_lock(&bins_locks[bin_index]);
+
+        for (int i : moveout[bin_index]) {
+            bins[bin_index].remove(i);
+        }
+        for (int i : movein[bin_index]) {
+            bins[bin_index].push_back(i);
+        }
+        moveout[bin_index].clear();
+        movein[bin_index].clear();
+
+        // Release lock for bins[bin_index]
+        omp_unset_lock(&bins_locks[bin_index]);
+    }
+
+    // Destroy locks
+    for (int i = 0; i < num_bins_x * num_bins_y; ++i) {
+        omp_destroy_lock(&movein_locks[i]);
+        omp_destroy_lock(&bins_locks[i]);
+    }
+
+    delete[] movein_locks;
+    delete[] bins_locks;
 }
