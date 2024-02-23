@@ -51,22 +51,28 @@ int num_bins_y;
 std::vector<std::list<int>> bins;
 std::vector<std::list<int>> moveout;
 std::vector<std::list<int>> movein;
+omp_lock_t* locks;
 
 void init_simulation(particle_t* parts, int num_parts, double size) {
     // You can use this space to initialize static, global data objects
     // that you may need. This function will be called once before the
     // algorithm begins. Do not do any particle simulation here
+    
     num_bins_x = static_cast<int>(size / cutoff) - 1;
     num_bins_y = static_cast<int>(size / cutoff) - 1;
     bins.resize(num_bins_x*num_bins_y);
     moveout.resize(num_bins_x*num_bins_y);
     movein.resize(num_bins_x*num_bins_y);
+    locks = new omp_lock_t[num_bins_x*num_bins_y];
+
     for (int i = 0; i < num_parts; ++i) {
         parts[i].ax = parts[i].ay = 0;
         int bin_x = static_cast<int>(parts[i].x / (size / num_bins_x));
         int bin_y = static_cast<int>(parts[i].y / (size / num_bins_y));
         int bin_index = bin_x + bin_y * num_bins_x;
         bins[bin_index].push_back(i);
+        omp_init_lock(&locks[bin_index]);
+
     }
 }
 
@@ -111,8 +117,12 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
             int new_bin_index = nbin_x + nbin_y * num_bins_x;
             if(nbin_x != bx || nbin_y != by) {
                 moveout[bin_index].push_back(particle);
-                #pragma omp critical
+                // #pragma omp critical
+                // synchronized movein  
+                omp_set_lock(&locks[new_bin_index]);
                 movein[new_bin_index].push_back(particle);
+                omp_unset_lock(&locks[new_bin_index]);
+               
             }
             parts[particle].ax = parts[particle].ay = 0;
         }
